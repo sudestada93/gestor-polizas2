@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Fianzas y Seguros - ASIPONA</title>
+    
+    <!-- Google Fonts: Noto Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (Estilos) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: {
+                    colors: {
+                        brand: {
+                            guinda: '#9b2247',
+                            verde: '#1e5b4f',
+                            gris: '#98989A',
+                            oscuro: '#002f2a',
+                            dorado: '#e6d194',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans"', 'sans-serif'],
+                    }
+                } 
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome (Iconos) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Librerías de React (Versiones de Producción Estables) -->
+    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel (Traductor de código en tiempo real) -->
+    <script src="https://unpkg.com/@babel/standalone@7.22.13/babel.min.js"></script>
+
+    <style>
+        .loader {
+            border: 4px solid #f3f4f6; border-top: 4px solid #9b2247;
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { background-color: #f8fafc; }
+        
+        /* Animación para barras de progreso */
+        .progress-bar-fill { transition: width 1s ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen font-sans text-brand-oscuro">
+    
+    <div id="root">
+        <div class="flex flex-col items-center justify-center min-h-screen">
+            <div class="loader mb-4"></div>
+            <h2 class="text-xl font-semibold text-brand-oscuro">Cargando Sistema de Pólizas...</h2>
+            <p class="text-brand-gris text-sm">Preparando el entorno seguro</p>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useRef } = React;
+
+        const Icon = ({ className = '', name }) => {
+            const sizeClass = className.includes('w-4') ? 'text-sm' : 
+                              className.includes('w-5') ? 'text-lg' : 
+                              className.includes('w-6') ? 'text-xl' : 
+                              className.includes('w-8') ? 'text-3xl' :
+                              className.includes('w-12') ? 'text-5xl' : 'text-base';
+            return <i className={`${name} ${sizeClass} ${className.replace(/w-\d+ h-\d+/g, '')}`}></i>;
+        };
+
+        const FileText = ({className}) => <Icon className={className} name="fa-solid fa-file-lines" />;
+        const AlertTriangle = ({className}) => <Icon className={className} name="fa-solid fa-triangle-exclamation" />;
+        const CheckCircle = ({className}) => <Icon className={className} name="fa-solid fa-circle-check" />;
+        const Search = ({className}) => <Icon className={className} name="fa-solid fa-magnifying-glass" />;
+        const Copy = ({className}) => <Icon className={className} name="fa-solid fa-copy" />;
+        const Calculator = ({className}) => <Icon className={className} name="fa-solid fa-calculator" />;
+        const ChevronLeft = ({className}) => <Icon className={className} name="fa-solid fa-chevron-left" />;
+        const Calendar = ({className}) => <Icon className={className} name="fa-regular fa-calendar-days" />;
+        const Trash2 = ({className}) => <Icon className={className} name="fa-solid fa-trash-can" />;
+        const Shield = ({className}) => <Icon className={className} name="fa-solid fa-shield-halved" />;
+        const FilePlus = ({className}) => <Icon className={className} name="fa-solid fa-file-circle-plus" />;
+        const LayoutDashboard = ({className}) => <Icon className={className} name="fa-solid fa-chart-line" />;
+        const Save = ({className}) => <Icon className={className} name="fa-solid fa-floppy-disk" />;
+        const RotateCw = ({className}) => <Icon className={className} name="fa-solid fa-rotate-right" />;
+        const ChartPie = ({className}) => <Icon className={className} name="fa-solid fa-chart-pie" />;
+        const Envelope = ({className}) => <Icon className={className} name="fa-solid fa-envelope" />;
+        const Phone = ({className}) => <Icon className={className} name="fa-solid fa-phone" />;
+        const Clock = ({className}) => <Icon className={className} name="fa-solid fa-clock-rotate-left" />;
+
+        // --- CONVERSOR A LETRAS ---
+        const Unidades=(num)=>{switch(num){case 1:return'UN';case 2:return'DOS';case 3:return'TRES';case 4:return'CUATRO';case 5:return'CINCO';case 6:return'SEIS';case 7:return'SIETE';case 8:return'OCHO';case 9:return'NUEVE';default:return'';}};
+        const Decenas=(num)=>{const decena=Math.floor(num/10);const unidad=num-(decena*10);switch(decena){case 1:switch(unidad){case 0:return'DIEZ';case 1:return'ONCE';case 2:return'DOCE';case 3:return'TRECE';case 4:return'CATORCE';case 5:return'QUINCE';default:return'DIECI'+Unidades(unidad);}case 2:switch(unidad){case 0:return'VEINTE';default:return'VEINTI'+Unidades(unidad);}case 3:return DecenasY('TREINTA',unidad);case 4:return DecenasY('CUARENTA',unidad);case 5:return DecenasY('CINCUENTA',unidad);case 6:return DecenasY('SESENTA',unidad);case 7:return DecenasY('SETENTA',unidad);case 8:return DecenasY('OCHENTA',unidad);case 9:return DecenasY('NOVENTA',unidad);case 0:return Unidades(unidad);default:return'';}};
+        const DecenasY=(strSin,numUnidades)=>{if(numUnidades>0)return strSin+' Y '+Unidades(numUnidades);return strSin;};
+        const Centenas=(num)=>{const centenas=Math.floor(num/100);const decenas=num-(centenas*100);switch(centenas){case 1:if(decenas>0)return'CIENTO '+Decenas(decenas);return'CIEN';case 2:return'DOSCIENTOS '+Decenas(decenas);case 3:return'TRESCIENTOS '+Decenas(decenas);case 4:return'CUATROCIENTOS '+Decenas(decenas);case 5:return'QUINIENTOS '+Decenas(decenas);case 6:return'SEISCIENTOS '+Decenas(decenas);case 7:return'SETECIENTOS '+Decenas(decenas);case 8:return'OCHOCIENTOS '+Decenas(decenas);case 9:return'NOVECIENTOS '+Decenas(decenas);default:return Decenas(decenas);}};
+        const Seccion=(num,divisor,strSingular,strPlural)=>{const cientos=Math.floor(num/divisor);const resto=num-(cientos*divisor);let letras='';if(cientos>0){if(cientos>1)letras=Centenas(cientos)+' '+strPlural;else letras=strSingular;}if(resto>0)letras+='';return letras;};
+        const Miles=(num)=>{const divisor=1000;const cientos=Math.floor(num/divisor);const resto=num-(cientos*divisor);const strMiles=Seccion(num,divisor,'UN MIL','MIL');const strCentenas=Centenas(resto);if(strMiles==='')return strCentenas;return strMiles+' '+strCentenas;};
+        const Millones=(num)=>{const divisor=1000000;const cientos=Math.floor(num/divisor);const resto=num-(cientos*divisor);const strMillones=Seccion(num,divisor,'UN MILLON','MILLONES');const strMiles=Miles(resto);if(strMillones==='')return strMiles;return strMillones+' '+strMiles;};
+        const numeroALetras=(num)=>{const data={numero:num,enteros:Math.floor(num),centavos:(((Math.round(num*100))-(Math.floor(num)*100))),letrasCentavos:'',letrasMonedaPlural:'PESOS',letrasMonedaSingular:'PESO'};data.letrasCentavos=data.centavos.toString().padStart(2,'0')+'/100 M.N.';if(data.enteros===0)return'CERO '+data.letrasMonedaPlural+' '+data.letrasCentavos;if(data.enteros===1)return Millones(data.enteros)+' '+data.letrasMonedaSingular+' '+data.letrasCentavos;return Millones(data.enteros)+' '+data.letrasMonedaPlural+' '+data.letrasCentavos;};
+
+        // --- BD INPC ---
+        const INPC_DB = {
+          "2017": { "01": 93.303, "02": 93.843, "03": 94.418, "04": 94.532, "05": 94.419, "06": 94.658, "07": 95.018, "08": 95.488, "09": 95.787, "10": 96.388, "11": 97.382, "12": 97.957 },
+          "2018": { "01": 98.475, "02": 98.847, "03": 99.166, "04": 98.831, "05": 98.671, "06": 99.248, "07": 99.782, "08": 100.365, "09": 100.788, "10": 101.314, "11": 102.176, "12": 102.887 },
+          "2019": { "01": 102.986, "02": 102.948, "03": 103.349, "04": 103.404, "05": 103.104, "06": 103.166, "07": 103.560, "08": 103.542, "09": 103.811, "10": 104.375, "11": 105.221, "12": 105.816 },
+          "2020": { "01": 106.324, "02": 106.772, "03": 106.717, "04": 105.653, "05": 106.058, "06": 106.643, "07": 107.344, "08": 107.765, "09": 108.012, "10": 108.672, "11": 108.756, "12": 109.171 },
+          "2021": { "01": 110.210, "02": 110.907, "03": 111.824, "04": 112.190, "05": 112.419, "06": 113.018, "07": 113.687, "08": 113.899, "09": 114.601, "10": 115.561, "11": 116.884, "12": 117.308 },
+          "2022": { "01": 118.002, "02": 118.983, "03": 120.158, "04": 120.805, "05": 121.021, "06": 122.044, "07": 122.948, "08": 123.816, "09": 124.583, "10": 125.281, "11": 125.997, "12": 126.478 },
+          "2023": { "01": 127.336, "02": 128.046, "03": 128.389, "04": 128.363, "05": 128.084, "06": 128.214, "07": 128.832, "08": 129.192, "09": 129.761, "10": 130.266, "11": 131.099, "12": 131.933 },
+          "2024": { "01": 133.112, "02": 133.235, "03": 133.601, "04": 133.871, "05": 133.618, "06": 134.127, "07": 135.534, "08": 135.542, "09": 135.617, "10": 136.360, "11": 137.472, "12": 138.253 },
+          "2025": { "01": 138.800, "02": 139.000, "03": 139.161, "04": 139.500, "05": 139.800, "06": 140.200, "07": 140.500, "08": 141.000, "09": 141.500, "10": 142.000, "11": 142.645, "12": 143.100 },
+          "2026": { "01": 143.500 }
+        };
+
+        const MESES = [
+          { val: '01', label: 'Enero' }, { val: '02', label: 'Febrero' }, { val: '03', label: 'Marzo' },
+          { val: '04', label: 'Abril' }, { val: '05', label: 'Mayo' }, { val: '06', label: 'Junio' },
+          { val: '07', label: 'Julio' }, { val: '08', label: 'Agosto' }, { val: '09', label: 'Septiembre' },
+          { val: '10', label: 'Octubre' }, { val: '11', label: 'Noviembre' }, { val: '12', label: 'Diciembre' }
+        ];
+
+        // --- FUNCIONES UTILITARIAS ---
+        const calculateDays = (dateString) => {
+          if (!dateString) return 999;
+          const end = new Date(dateString + 'T00:00:00'); 
+          const today = new Date(); today.setHours(0,0,0,0);
+          return Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+        };
+
+        const getStatusStyle = (days) => {
+          if (days < 0) return { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200', icon: <AlertTriangle className="w-5 h-5 text-red-600" /> };
+          if (days <= 60) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', icon: <AlertTriangle className="w-5 h-5 text-amber-600" /> };
+          return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', icon: <CheckCircle className="w-5 h-5 text-emerald-600" /> };
+        };
+
+        // --- COMPONENTE HISTORIAL DE ACCIONES ---
+        function HistorialAcciones({ historial = [], onAddAction }) {
+          const [fecha, setFecha] = useState('');
+          const [tipo, setTipo] = useState('Correo Enviado');
+          const [comentario, setComentario] = useState('');
+
+          const handleSave = () => {
+            if(!fecha || !comentario) return alert("Por favor selecciona una fecha y escribe un comentario.");
+            onAddAction({ id: crypto.randomUUID(), fecha, tipo, comentario });
+            setFecha(''); setComentario('');
+          };
+
+          const getIcon = (tipo) => {
+            if(tipo.includes('Correo')) return <Envelope className="w-4 h-4 text-blue-600" />;
+            if(tipo.includes('Llamada')) return <Phone className="w-4 h-4 text-emerald-600" />;
+            return <FileText className="w-4 h-4 text-brand-guinda" />;
+          };
+
+          return (
+            <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-oscuro mt-6">
+              <h3 className="text-lg font-bold text-brand-oscuro flex items-center gap-2 mb-4"><Clock className="w-5 h-5 text-brand-oscuro" /> Bitácora de Seguimiento</h3>
+              
+              {/* Formulario para agregar nueva acción */}
+              <div className="flex flex-col md:flex-row gap-3 mb-6 bg-slate-50 p-4 rounded border border-brand-gris/20">
+                <input type="date" className="px-3 py-2 border rounded focus:ring-2 focus:ring-brand-oscuro outline-none text-sm" value={fecha} onChange={(e)=>setFecha(e.target.value)} />
+                <select className="px-3 py-2 border rounded focus:ring-2 focus:ring-brand-oscuro outline-none text-sm" value={tipo} onChange={(e)=>setTipo(e.target.value)}>
+                  <option>Correo Enviado</option>
+                  <option>Oficio Enviado</option>
+                  <option>Llamada Telefónica</option>
+                  <option>Reunión / Otra</option>
+                </select>
+                <input type="text" placeholder="Detalles de la acción..." className="flex-1 px-3 py-2 border rounded focus:ring-2 focus:ring-brand-oscuro outline-none text-sm" value={comentario} onChange={(e)=>setComentario(e.target.value)} />
+                <button onClick={handleSave} className="bg-brand-oscuro text-white px-4 py-2 rounded font-bold hover:bg-opacity-90 transition text-sm whitespace-nowrap">Añadir Acción</button>
+              </div>
+
+              {/* Lista de acciones */}
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {historial.length === 0 ? (
+                  <p className="text-sm text-brand-gris italic text-center py-4">No hay acciones registradas aún.</p>
+                ) : (
+                  historial.sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).map(accion => (
+                    <div key={accion.id} className="flex gap-4 items-start p-3 bg-white border border-brand-gris/10 rounded shadow-sm hover:border-brand-gris/30 transition">
+                      <div className="bg-slate-100 p-2 rounded-full mt-1">
+                        {getIcon(accion.tipo)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-sm text-brand-oscuro">{accion.tipo}</span>
+                          <span className="text-xs font-semibold text-brand-gris bg-slate-100 px-2 py-1 rounded">{accion.fecha.split('-').reverse().join('/')}</span>
+                        </div>
+                        <p className="text-sm text-brand-gris">{accion.comentario}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // --- COMPONENTE MÓDULO ESTADÍSTICAS ---
+        function ModuloEstadisticas({ fianzas, seguros }) {
+          const getStats = (data) => {
+            let vigentes = 0, riesgo = 0, vencidas = 0;
+            data.forEach(item => {
+              const d = calculateDays(item.termino);
+              if (d < 0) vencidas++; else if (d <= 60) riesgo++; else vigentes++;
+            });
+            const total = data.length;
+            const porcentaje = total === 0 ? 0 : Math.round((vigentes / total) * 100);
+            return { total, vigentes, riesgo, vencidas, porcentaje };
+          };
+
+          const statsFianzas = getStats(fianzas);
+          const statsSeguros = getStats(seguros);
+          const globalTotal = statsFianzas.total + statsSeguros.total;
+          const globalVigentes = statsFianzas.vigentes + statsSeguros.vigentes;
+          const globalPorcentaje = globalTotal === 0 ? 0 : Math.round((globalVigentes / globalTotal) * 100);
+
+          // SVG Circle calculation
+          const radius = 60;
+          const circumference = 2 * Math.PI * radius;
+          const strokeDashoffset = circumference - (globalPorcentaje / 100) * circumference;
+
+          return (
+            <div className="animate-in fade-in duration-500 space-y-6">
+              
+              {/* Tarjeta Global */}
+              <div className="bg-white p-8 rounded shadow-sm border border-brand-gris/20 flex flex-col md:flex-row items-center gap-10">
+                <div className="relative flex items-center justify-center">
+                  <svg className="transform -rotate-90 w-40 h-40">
+                    <circle cx="80" cy="80" r={radius} stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
+                    <circle cx="80" cy="80" r={radius} stroke="currentColor" strokeWidth="12" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className={`${globalPorcentaje === 100 ? 'text-emerald-500' : globalPorcentaje >= 80 ? 'text-brand-verde' : globalPorcentaje >= 50 ? 'text-amber-500' : 'text-red-500'} transition-all duration-1000 ease-out`} />
+                  </svg>
+                  <div className="absolute flex flex-col items-center justify-center text-center">
+                    <span className="text-4xl font-bold text-brand-oscuro">{globalPorcentaje}%</span>
+                    <span className="text-xs font-bold uppercase text-brand-gris mt-1">Cumplimiento</span>
+                  </div>
+                </div>
+                <div className="flex-1 w-full">
+                  <h2 className="text-2xl font-bold text-brand-oscuro mb-2">Estado Global de Pólizas</h2>
+                  <p className="text-brand-gris mb-6">Métrica general de cumplimiento (Pólizas en estatus Verde). Incluye sumatoria de Fianzas y Seguros.</p>
+                  
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded">
+                      <div className="text-3xl font-bold text-emerald-600">{globalVigentes}</div>
+                      <div className="text-xs font-bold uppercase text-emerald-800 mt-1">Vigentes</div>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-100 p-4 rounded">
+                      <div className="text-3xl font-bold text-amber-600">{statsFianzas.riesgo + statsSeguros.riesgo}</div>
+                      <div className="text-xs font-bold uppercase text-amber-800 mt-1">Por Vencer</div>
+                    </div>
+                    <div className="bg-red-50 border border-red-100 p-4 rounded">
+                      <div className="text-3xl font-bold text-red-600">{statsFianzas.vencidas + statsSeguros.vencidas}</div>
+                      <div className="text-xs font-bold uppercase text-red-800 mt-1">Vencidas</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desglose por Departamento */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Desglose Fianzas */}
+                <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-dorado">
+                  <h3 className="text-lg font-bold text-brand-oscuro mb-4 flex justify-between items-center">
+                    <span>Módulo de Fianzas</span>
+                    <span className="text-sm font-bold bg-brand-dorado/20 text-brand-oscuro px-3 py-1 rounded-full">{statsFianzas.total} en total</span>
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-semibold"><span className="text-emerald-700">Vigentes</span><span>{statsFianzas.vigentes} ({statsFianzas.porcentaje}%)</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5"><div className="bg-emerald-500 h-2.5 rounded-full progress-bar-fill" style={{width: `${statsFianzas.porcentaje}%`}}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-semibold"><span className="text-amber-700">Próximas a vencer (≤ 60 días)</span><span>{statsFianzas.riesgo}</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5"><div className="bg-amber-500 h-2.5 rounded-full progress-bar-fill" style={{width: `${statsFianzas.total===0?0:(statsFianzas.riesgo/statsFianzas.total)*100}%`}}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-semibold"><span className="text-red-700">Vencidas</span><span>{statsFianzas.vencidas}</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5"><div className="bg-red-500 h-2.5 rounded-full progress-bar-fill" style={{width: `${statsFianzas.total===0?0:(statsFianzas.vencidas/statsFianzas.total)*100}%`}}></div></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desglose Seguros */}
+                <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-guinda">
+                  <h3 className="text-lg font-bold text-brand-oscuro mb-4 flex justify-between items-center">
+                    <span>Módulo de Seguros</span>
+                    <span className="text-sm font-bold bg-brand-guinda/10 text-brand-guinda px-3 py-1 rounded-full">{statsSeguros.total} en total</span>
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-semibold"><span className="text-emerald-700">Vigentes</span><span>{statsSeguros.vigentes} ({statsSeguros.porcentaje}%)</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5"><div className="bg-emerald-500 h-2.5 rounded-full progress-bar-fill" style={{width: `${statsSeguros.porcentaje}%`}}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-semibold"><span className="text-amber-700">Próximas a vencer (≤ 60 días)</span><span>{statsSeguros.riesgo}</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5"><div className="bg-amber-500 h-2.5 rounded-full progress-bar-fill" style={{width: `${statsSeguros.total===0?0:(statsSeguros.riesgo/statsSeguros.total)*100}%`}}></div></div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1 font-semibold"><span className="text-red-700">Vencidas</span><span>{statsSeguros.vencidas}</span></div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5"><div className="bg-red-500 h-2.5 rounded-full progress-bar-fill" style={{width: `${statsSeguros.total===0?0:(statsSeguros.vencidas/statsSeguros.total)*100}%`}}></div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          );
+        }
+
+        // --- COMPONENTE PRINCIPAL ---
+        function App() {
+          const [activeTab, setActiveTab] = useState('fianzas'); 
+          const [view, setView] = useState('dashboard'); 
+          
+          const [fianzas, setFianzas] = useState([
+            {
+              id: '1', empresa: 'TECHDIVING MARINE SERVICES, S.A. DE C.V.', contacto: 'José Antonio Leñero Solís',
+              afianzadora: 'ASERTA', poliza: '1249-02088-0', montoOriginal: 55000, termino: '2025-04-19',
+              clausula: 'DECIMA OCTAVA', servicio: 'Servicio Conexo', numContrato: 'ASIPONATUX03-003/22', historial: []
+            }
+          ]);
+
+          const [seguros, setSeguros] = useState([
+            {
+              id: 's1', empresa: 'Navalmex Combustibles, S.A. de C.V.', contacto: 'Juan Pérez',
+              aseguradora: 'QUALITAS', poliza: '49333023 INCISOS 1 A 12', descripcion: 'PÓLIZA DE SEGURO DE 12 AUTOTANQUES', 
+              termino: '2025-03-01', servicio: 'Prestación del Servicio', numContrato: 'ASIPONATUX-00/00', historial: []
+            }
+          ]);
+
+          const [searchTerm, setSearchTerm] = useState('');
+          const [selectedItem, setSelectedItem] = useState(null);
+
+          const handleDelete = (id, type) => {
+            if(window.confirm('¿Seguro que deseas eliminar esta póliza del sistema?')) {
+              if (type === 'fianza') setFianzas(fianzas.filter(f => f.id !== id));
+              else setSeguros(seguros.filter(s => s.id !== id));
+            }
+          };
+
+          const handleUpdateDate = (id, type, newDate) => {
+            if (type === 'fianza') setFianzas(fianzas.map(f => f.id === id ? { ...f, termino: newDate } : f));
+            else setSeguros(seguros.map(s => s.id === id ? { ...s, termino: newDate } : s));
+            alert('Vigencia actualizada correctamente. El semáforo ha cambiado.');
+            setView('dashboard');
+          };
+
+          const handleAddAction = (id, type, newAction) => {
+            if (type === 'fianza') {
+               setFianzas(fianzas.map(f => f.id === id ? { ...f, historial: [...(f.historial || []), newAction] } : f));
+               // Update selected item so UI refreshes immediately
+               setSelectedItem(prev => ({...prev, historial: [...(prev.historial || []), newAction]}));
+            } else {
+               setSeguros(seguros.map(s => s.id === id ? { ...s, historial: [...(s.historial || []), newAction] } : s));
+               setSelectedItem(prev => ({...prev, historial: [...(prev.historial || []), newAction]}));
+            }
+          };
+
+          const filteredData = (activeTab === 'fianzas' ? fianzas : activeTab === 'seguros' ? seguros : [])
+            .filter(item => item.empresa.toLowerCase().includes(searchTerm.toLowerCase()) || item.poliza.toLowerCase().includes(searchTerm.toLowerCase()))
+            .sort((a, b) => calculateDays(a.termino) - calculateDays(b.termino));
+
+          return (
+            <div>
+              {/* ENCABEZADO CORPORATIVO */}
+              <header className="bg-white border-b border-brand-dorado shadow-sm">
+                <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-brand-oscuro p-3 rounded-lg flex items-center justify-center">
+                       <Shield className="w-8 h-8 text-brand-dorado" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-brand-oscuro tracking-tight">Gestor de Pólizas</h1>
+                        <p className="text-brand-gris text-sm font-medium uppercase tracking-wide">Control Institucional de Vigencias</p>
+                    </div>
+                  </div>
+                  {view === 'dashboard' && activeTab !== 'estadisticas' && (
+                    <button 
+                      onClick={() => setView(activeTab === 'fianzas' ? 'add_fianza' : 'add_seguro')}
+                      className="flex items-center gap-2 bg-brand-guinda text-white px-5 py-2.5 rounded shadow hover:bg-opacity-90 transition font-semibold"
+                    >
+                      <FilePlus className="w-5 h-5" />
+                      <span>Agregar {activeTab === 'fianzas' ? 'Fianza' : 'Seguro'}</span>
+                    </button>
+                  )}
+                </div>
+              </header>
+
+              <div className="p-6 max-w-7xl mx-auto">
+                {view === 'dashboard' && (
+                  <>
+                    <div className="flex space-x-2 mb-6 border-b-2 border-brand-dorado/30 overflow-x-auto">
+                      <button 
+                        onClick={() => {setActiveTab('fianzas'); setSearchTerm('');}}
+                        className={`px-6 py-3 font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'fianzas' ? 'text-brand-guinda border-b-4 border-brand-guinda bg-white' : 'text-brand-gris hover:text-brand-guinda hover:bg-white/50'}`}
+                      >
+                        <LayoutDashboard className="w-5 h-5" /> Módulo de Fianzas
+                      </button>
+                      <button 
+                        onClick={() => {setActiveTab('seguros'); setSearchTerm('');}}
+                        className={`px-6 py-3 font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'seguros' ? 'text-brand-guinda border-b-4 border-brand-guinda bg-white' : 'text-brand-gris hover:text-brand-guinda hover:bg-white/50'}`}
+                      >
+                        <Shield className="w-5 h-5" /> Módulo de Seguros
+                      </button>
+                      <button 
+                        onClick={() => {setActiveTab('estadisticas');}}
+                        className={`px-6 py-3 font-bold flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'estadisticas' ? 'text-brand-oscuro border-b-4 border-brand-oscuro bg-white' : 'text-brand-gris hover:text-brand-oscuro hover:bg-white/50'}`}
+                      >
+                        <ChartPie className="w-5 h-5" /> Estadísticas y Cumplimiento
+                      </button>
+                    </div>
+
+                    {activeTab === 'estadisticas' ? (
+                      <ModuloEstadisticas fianzas={fianzas} seguros={seguros} />
+                    ) : (
+                      <div className="bg-white rounded shadow-sm border border-brand-gris/20 overflow-hidden animate-in fade-in">
+                        <div className="p-4 border-b border-brand-gris/20 flex flex-col md:flex-row justify-between items-center gap-4 bg-white">
+                          <div className="relative w-full md:w-1/3">
+                            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-brand-dorado" />
+                            <input type="text" placeholder="Buscar por empresa o póliza..." className="w-full pl-10 pr-4 py-2 rounded border border-brand-gris/30 focus:ring-2 focus:ring-brand-verde focus:border-brand-verde outline-none transition" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                          </div>
+                          <div className="flex gap-4 text-sm font-semibold">
+                            <span className="flex items-center gap-1.5 text-red-700"><div className="w-3 h-3 rounded-full bg-red-500 shadow-sm"></div> Vencidas</span>
+                            <span className="flex items-center gap-1.5 text-amber-700"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm"></div> ≤ 60 días</span>
+                            <span className="flex items-center gap-1.5 text-emerald-700"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></div> Vigentes</span>
+                          </div>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse min-w-[800px]">
+                            <thead>
+                              <tr className="bg-brand-oscuro text-white text-sm uppercase tracking-wider">
+                                <th className="p-4 font-semibold w-40 rounded-tl">Semáforo</th>
+                                <th className="p-4 font-semibold">Empresa</th>
+                                <th className="p-4 font-semibold">{activeTab === 'fianzas' ? 'Afianzadora' : 'Aseguradora'}</th>
+                                <th className="p-4 font-semibold">Póliza / Vencimiento</th>
+                                {activeTab === 'fianzas' ? <th className="p-4 font-semibold text-right">Monto Base</th> : <th className="p-4 font-semibold">Descripción</th>}
+                                <th className="p-4 font-semibold text-center w-32 rounded-tr">Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-brand-gris/10">
+                              {filteredData.length === 0 && (
+                                 <tr>
+                                    <td colSpan="6" className="p-12 text-center text-brand-gris">
+                                      <div className="flex flex-col items-center gap-3">
+                                        {activeTab === 'fianzas' ? <LayoutDashboard className="w-12 h-12 opacity-50" /> : <Shield className="w-12 h-12 opacity-50" />}
+                                        <p className="font-medium">No hay pólizas registradas. Haz clic en "Agregar".</p>
+                                      </div>
+                                    </td>
+                                 </tr>
+                              )}
+                              {filteredData.map(item => {
+                                const days = calculateDays(item.termino);
+                                const style = getStatusStyle(days);
+                                return (
+                                  <tr key={item.id} className="hover:bg-slate-50 transition">
+                                    <td className="p-4">
+                                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-bold shadow-sm ${style.bg} ${style.text} ${style.border}`}>
+                                        {style.icon}
+                                        {days < 0 ? `Vencida (${Math.abs(days)}d)` : `${days} días`}
+                                      </div>
+                                    </td>
+                                    <td className="p-4 font-bold text-brand-oscuro">{item.empresa}</td>
+                                    <td className="p-4 text-brand-verde font-semibold text-sm uppercase">{activeTab === 'fianzas' ? item.afianzadora : item.aseguradora}</td>
+                                    <td className="p-4">
+                                      <div className="font-mono text-sm font-bold text-brand-oscuro">{item.poliza}</div>
+                                      <div className={`text-sm flex items-center gap-1 mt-1 font-semibold ${days <= 60 ? 'text-amber-600' : 'text-brand-gris'}`}>
+                                        <Calendar className="w-4 h-4" />
+                                        {item.termino.split('-').reverse().join('/')}
+                                      </div>
+                                    </td>
+                                    {activeTab === 'fianzas' ? (
+                                      <td className="p-4 text-right font-bold text-brand-oscuro">
+                                        {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(item.montoOriginal)}
+                                      </td>
+                                    ) : (
+                                      <td className="p-4 text-xs font-semibold text-brand-gris uppercase">{item.descripcion}</td>
+                                    )}
+                                    <td className="p-4">
+                                      <div className="flex justify-center gap-2">
+                                        <button 
+                                          onClick={() => { setSelectedItem(item); setView(activeTab === 'fianzas' ? 'renew_fianza' : 'renew_seguro'); }}
+                                          className="p-2 bg-brand-dorado/20 text-brand-oscuro hover:bg-brand-dorado/60 rounded transition border border-brand-dorado/50 shadow-sm"
+                                          title="Gestión y Seguimiento"
+                                        >
+                                          <RotateCw className="w-5 h-5" />
+                                        </button>
+                                        <button 
+                                          onClick={() => handleDelete(item.id, activeTab)}
+                                          className="p-2 text-brand-gris hover:text-brand-guinda hover:bg-red-50 transition rounded"
+                                          title="Eliminar registro"
+                                        >
+                                          <Trash2 className="w-5 h-5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {view === 'add_fianza' && <AddFianzaForm onSave={(newFianza) => { setFianzas([...fianzas, {...newFianza, historial:[]}]); setView('dashboard'); }} onCancel={() => setView('dashboard')} />}
+                {view === 'renew_fianza' && selectedItem && <RenewFianzaForm fianza={selectedItem} onUpdateDate={(id, date) => handleUpdateDate(id, 'fianza', date)} onAddAction={(action) => handleAddAction(selectedItem.id, 'fianza', action)} onBack={() => setView('dashboard')} />}
+                {view === 'add_seguro' && <AddSeguroForm onSave={(newSeguro) => { setSeguros([...seguros, {...newSeguro, historial:[]}]); setView('dashboard'); }} onCancel={() => setView('dashboard')} />}
+                {view === 'renew_seguro' && selectedItem && <RenewSeguroForm seguro={selectedItem} onUpdateDate={(id, date) => handleUpdateDate(id, 'seguro', date)} onAddAction={(action) => handleAddAction(selectedItem.id, 'seguro', action)} onBack={() => setView('dashboard')} />}
+              </div>
+            </div>
+          );
+        }
+
+        function AddFianzaForm({ onSave, onCancel }) {
+          const [formData, setFormData] = useState({ empresa: '', contacto: '', afianzadora: '', poliza: '', montoOriginal: '', termino: '', clausula: 'VIGÉSIMA', servicio: 'Prestación del Servicio Conexo de Fumigación', numContrato: '' });
+          const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+          const handleSave = () => {
+            if (!formData.empresa || !formData.termino || !formData.montoOriginal) { alert("Por favor llena al menos Empresa, Monto y Fecha."); return; }
+            onSave({ ...formData, id: crypto.randomUUID(), montoOriginal: parseFloat(formData.montoOriginal) });
+          };
+
+          const montoTexto = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(formData.montoOriginal || 0);
+          const montoLetras = numeroALetras(parseFloat(formData.montoOriginal) || 0);
+          const textoRef = useRef(null);
+          const [copiado, setCopiado] = useState(false);
+          const handleCopy = () => { navigator.clipboard.writeText(textoRef.current.innerText); setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
+
+          return (
+            <div className="space-y-6">
+              <button onClick={onCancel} className="flex items-center gap-2 text-brand-gris hover:text-brand-guinda transition font-bold"><ChevronLeft className="w-5 h-5" /> Regresar</button>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-5 flex flex-col gap-6">
+                  <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-verde">
+                    <h3 className="text-lg font-bold text-brand-oscuro flex items-center gap-2 mb-6"><FilePlus className="w-5 h-5 text-brand-verde" /> Registro de Fianza Nueva</h3>
+                    <div className="space-y-4">
+                      <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Empresa</label><input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                      <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Afianzadora</label><input type="text" name="afianzadora" value={formData.afianzadora} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Póliza</label><input type="text" name="poliza" value={formData.poliza} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Vencimiento</label><input type="date" name="termino" value={formData.termino} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Monto ($)</label><input type="number" name="montoOriginal" value={formData.montoOriginal} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none font-bold text-brand-oscuro" /></div>
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Cláusula</label><input type="text" name="clausula" value={formData.clausula} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                      </div>
+                      <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Tipo de Servicio</label><input type="text" name="servicio" value={formData.servicio} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">No. Contrato</label><input type="text" name="numContrato" value={formData.numContrato} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Dirigido a (C.)</label><input type="text" name="contacto" value={formData.contacto} onChange={handleChange} className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                      </div>
+                    </div>
+                    <button onClick={handleSave} className="w-full mt-8 bg-brand-verde text-white py-3 rounded font-bold hover:bg-opacity-90 transition flex items-center justify-center gap-2 shadow-md"><Save className="w-5 h-5" /> Guardar Póliza en el Sistema</button>
+                  </div>
+                </div>
+                <div className="lg:col-span-7 flex flex-col">
+                  <div className="bg-brand-oscuro p-3 rounded-t flex justify-between items-center px-4">
+                    <h3 className="text-sm font-bold text-brand-dorado flex items-center gap-2"><FileText className="w-4 h-4" /> Plantilla: Oficio Solicitud (1ra Vez)</h3>
+                    <button onClick={handleCopy} className={`flex items-center gap-1 px-4 py-1.5 rounded text-sm font-bold transition shadow ${copiado ? 'bg-brand-dorado text-brand-oscuro' : 'bg-white text-brand-oscuro hover:bg-gray-100'}`}>{copiado ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copiado ? 'Copiado' : 'Copiar Texto'}</button>
+                  </div>
+                  <div className="bg-white border-l border-r border-b border-brand-gris/20 rounded-b p-10 shadow-sm flex-1 font-serif text-[15px] leading-relaxed whitespace-pre-wrap text-black" ref={textoRef}>
+{`C. ${formData.contacto || '[Nombre Contacto]'}
+${formData.empresa || '[Empresa]'}
+P R E S E N T E 
+
+Por medio del presente, y en relación a su Contrato de ${formData.servicio}, con número de registro ${formData.numContrato || '[Número]'}.
+
+Al respecto, y en cumplimiento a lo establecido en el instrumento contractual antes mencionado, se solicita remitir con carácter de URGENTE a esta Entidad, la póliza de fianza considerada en la cláusula ${formData.clausula}, por un importe de ${montoTexto} (${montoLetras}), acompañada de su respectivo comprobante de pago, archivo XML y complemento de pago, en un término de cinco (05) días hábiles, contados a partir de la recepción del presente oficio.
+
+No se omite mencionar, que no entregar la póliza de fianza en los términos establecidos, podrá constituir la aplicación de penas convencionales, conforme a lo dispuesto en el mencionado instrumento contractual.
+
+Sin otro particular, reciba un cordial saludo. 
+
+A T E N T A M E N T E
+
+
+Lic. Evodio Cruz Segura
+Gerente de Comercialización`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        function AddSeguroForm({ onSave, onCancel }) {
+          const [formData, setFormData] = useState({ empresa: '', contacto: '', aseguradora: '', poliza: '', descripcion: 'PÓLIZA DE SEGURO DE ', termino: '', servicio: 'Prestación de Servicios', numContrato: '' });
+          const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+          const handleSave = () => {
+            if (!formData.empresa || !formData.termino || !formData.aseguradora) { alert("Llena Empresa, Aseguradora y Vencimiento."); return; }
+            onSave({ ...formData, id: crypto.randomUUID() });
+          };
+
+          return (
+            <div className="space-y-6">
+              <button onClick={onCancel} className="flex items-center gap-2 text-brand-gris hover:text-brand-guinda transition font-bold"><ChevronLeft className="w-5 h-5" /> Regresar</button>
+              <div className="max-w-3xl mx-auto bg-white p-8 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-verde">
+                <h3 className="text-xl font-bold text-brand-oscuro flex items-center gap-2 mb-6"><Shield className="w-6 h-6 text-brand-verde" /> Registrar Nuevo Seguro</h3>
+                <div className="space-y-5">
+                  <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Nombre de la Empresa</label><input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Aseguradora</label><input type="text" name="aseguradora" value={formData.aseguradora} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                    <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Fecha Vencimiento</label><input type="date" name="termino" value={formData.termino} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Póliza / Incisos</label><input type="text" name="poliza" value={formData.poliza} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                    <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Dirigido a (Contacto)</label><input type="text" name="contacto" value={formData.contacto} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                  </div>
+                  <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Descripción del Seguro</label><input type="text" name="descripcion" value={formData.descripcion} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Nombre Contrato</label><input type="text" name="servicio" value={formData.servicio} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none" /></div>
+                    <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Número Contrato</label><input type="text" name="numContrato" value={formData.numContrato} onChange={handleChange} className="w-full px-4 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-verde outline-none uppercase" /></div>
+                  </div>
+                </div>
+                <button onClick={handleSave} className="w-full mt-8 bg-brand-verde text-white py-3 rounded font-bold hover:bg-opacity-90 transition flex items-center justify-center gap-2 shadow-md"><Save className="w-5 h-5" /> Guardar Seguro en el Sistema</button>
+              </div>
+            </div>
+          );
+        }
+
+        function RenewFianzaForm({ fianza, onUpdateDate, onAddAction, onBack }) {
+          const [empresa, setEmpresa] = useState(fianza.empresa || '');
+          const [contacto, setContacto] = useState(fianza.contacto || '');
+          const [servicio, setServicio] = useState(fianza.servicio || '');
+          const [numContrato, setNumContrato] = useState(fianza.numContrato || '');
+          const [termino, setTermino] = useState(fianza.termino || '');
+
+          const [inpcBase, setInpcBase] = useState('');
+          const [inpcActual, setInpcActual] = useState('');
+          const [montoBaseManual, setMontoBaseManual] = useState(fianza.montoOriginal);
+          
+          const [yearBase, setYearBase] = useState(''); const [mesBase, setMesBase] = useState('');
+          const [yearActual, setYearActual] = useState(''); const [mesActual, setMesActual] = useState('');
+
+          const handleAutoINPC = (year, month, setter) => { if (year && month && INPC_DB[year] && INPC_DB[year][month]) setter(INPC_DB[year][month]); };
+
+          const montoCalculado = useMemo(() => {
+            const base = parseFloat(inpcBase); const actual = parseFloat(inpcActual); const montoBase = parseFloat(montoBaseManual);
+            if (!isNaN(base) && base > 0 && !isNaN(actual) && actual > 0 && !isNaN(montoBase)) return montoBase * (actual / base);
+            return montoBase || 0;
+          }, [inpcBase, inpcActual, montoBaseManual]);
+
+          const montoFinalTexto = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(montoCalculado);
+          const montoEnLetras = numeroALetras(montoCalculado);
+          
+          const textoRef = useRef(null);
+          const [copiado, setCopiado] = useState(false);
+          const handleCopy = () => { navigator.clipboard.writeText(textoRef.current.innerText); setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
+
+          return (
+            <div className="space-y-6">
+              <button onClick={onBack} className="flex items-center gap-2 text-brand-gris hover:text-brand-guinda transition font-bold"><ChevronLeft className="w-5 h-5" /> Regresar</button>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-6 space-y-6">
+                  {/* CALCULADORA */}
+                  <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-dorado">
+                    <h3 className="text-lg font-bold text-brand-oscuro flex items-center gap-2 mb-6"><Calculator className="w-5 h-5 text-brand-dorado" /> Renovación y Actualización INPC</h3>
+                    
+                    <div className="mb-6 space-y-3 p-4 rounded border border-brand-gris/20 bg-slate-50">
+                      <h4 className="font-bold text-sm text-brand-oscuro mb-2 border-b border-brand-gris/20 pb-1">Datos Generales del Contrato</h4>
+                      <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Empresa</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={empresa} onChange={(e)=>setEmpresa(e.target.value)} /></div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Representante Legal</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={contacto} onChange={(e)=>setContacto(e.target.value)} /></div>
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Vencimiento Póliza</label><input type="date" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={termino} onChange={(e)=>setTermino(e.target.value)} /></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Nombre Contrato</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={servicio} onChange={(e)=>setServicio(e.target.value)} /></div>
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Número Contrato</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none uppercase" value={numContrato} onChange={(e)=>setNumContrato(e.target.value)} /></div>
+                      </div>
+                    </div>
+
+                    <div className="mb-6 bg-white p-4 rounded border border-brand-gris/20">
+                      <label className="text-xs text-brand-guinda uppercase font-bold block mb-2">Monto Base Inamovible ($)</label>
+                      <input type="number" className="w-full bg-slate-50 px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none font-bold text-lg text-brand-oscuro" value={montoBaseManual} onChange={(e) => setMontoBaseManual(e.target.value)} />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2 p-4 border border-brand-gris/20 rounded bg-white">
+                        <label className="block text-sm font-bold text-brand-oscuro">INPC Base (Contrato)</label>
+                        <div className="flex gap-2">
+                          <select className="flex-1 px-2 py-1.5 border border-brand-gris/30 rounded text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-brand-dorado" value={yearBase} onChange={(e) => { setYearBase(e.target.value); handleAutoINPC(e.target.value, mesBase, setInpcBase); }}><option value="">Año</option>{Object.keys(INPC_DB).map(y => <option key={y} value={y}>{y}</option>)}</select>
+                          <select className="flex-1 px-2 py-1.5 border border-brand-gris/30 rounded text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-brand-dorado" value={mesBase} onChange={(e) => { setMesBase(e.target.value); handleAutoINPC(yearBase, e.target.value, setInpcBase); }}><option value="">Mes</option>{MESES.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}</select>
+                        </div>
+                        <input type="number" step="0.0001" placeholder="Valor INPC" className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none mt-2 font-bold text-brand-verde" value={inpcBase} onChange={(e) => setInpcBase(e.target.value)} />
+                      </div>
+                      <div className="space-y-2 p-4 border border-brand-gris/20 rounded bg-white">
+                        <label className="block text-sm font-bold text-brand-oscuro">INPC Actualización</label>
+                        <div className="flex gap-2">
+                          <select className="flex-1 px-2 py-1.5 border border-brand-gris/30 rounded text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-brand-dorado" value={yearActual} onChange={(e) => { setYearActual(e.target.value); handleAutoINPC(e.target.value, mesActual, setInpcActual); }}><option value="">Año</option>{Object.keys(INPC_DB).map(y => <option key={y} value={y}>{y}</option>)}</select>
+                          <select className="flex-1 px-2 py-1.5 border border-brand-gris/30 rounded text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-brand-dorado" value={mesActual} onChange={(e) => { setMesActual(e.target.value); handleAutoINPC(yearActual, e.target.value, setInpcActual); }}><option value="">Mes</option>{MESES.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}</select>
+                        </div>
+                        <input type="number" step="0.0001" placeholder="Valor INPC" className="w-full px-3 py-2 border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none mt-2 font-bold text-brand-verde" value={inpcActual} onChange={(e) => setInpcActual(e.target.value)} />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 p-5 bg-brand-oscuro rounded shadow-inner text-center">
+                      <div className="text-sm text-brand-dorado font-bold uppercase tracking-wide">Monto Actualizado a Solicitar</div>
+                      <div className="text-4xl font-bold text-white mt-2">{montoFinalTexto}</div>
+                    </div>
+                  </div>
+                  
+                  {/* ACTUALIZAR SEMÁFORO */}
+                  <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-l-4 border-l-brand-verde flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-brand-oscuro">Confirmar Recepción de Póliza</h4>
+                      <p className="text-sm text-brand-gris">Guarda la nueva fecha para resetear el semáforo a verde.</p>
+                    </div>
+                    <button onClick={() => termino && onUpdateDate(fianza.id, termino)} className="bg-brand-verde text-white px-5 py-2.5 rounded font-bold hover:bg-opacity-90 transition shadow">Actualizar Semáforo</button>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 flex flex-col">
+                  {/* PLANTILLA DE OFICIO */}
+                  <div className="bg-brand-oscuro p-3 rounded-t flex justify-between items-center px-4">
+                    <h3 className="text-sm font-bold text-brand-dorado flex items-center gap-2"><FileText className="w-4 h-4" /> Plantilla: Oficio de Renovación</h3>
+                    <button onClick={handleCopy} className={`flex items-center gap-1 px-4 py-1.5 rounded text-sm font-bold transition shadow ${copiado ? 'bg-brand-dorado text-brand-oscuro' : 'bg-white text-brand-oscuro hover:bg-gray-100'}`}>{copiado ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copiado ? 'Copiado' : 'Copiar Texto'}</button>
+                  </div>
+                  <div className="bg-white border-l border-r border-b border-brand-gris/20 rounded-b p-10 shadow-sm flex-1 font-serif text-[15px] leading-relaxed whitespace-pre-wrap text-black" ref={textoRef}>
+{`C. ${contacto || '[Contacto]'}
+${empresa}
+P R E S E N T E 
+
+Por medio del presente y en relación a su Contrato de ${servicio}, con número de registro ${numContrato}. 
+
+Al respecto, se solicita remitir con carácter de URGENTE a esta Entidad, el endoso de actualización de la fianza número ${fianza.poliza}, emitida por ${fianza.afianzadora} y considerada en la cláusula ${fianza.clausula} del citado contrato, por un importe actualizado de ${montoFinalTexto} (${montoEnLetras}).
+
+Para lo anterior, deberá enviar la póliza, el comprobante de pago, el archivo XML y su complemento de pago en un término de cinco (05) días hábiles, contados a partir de la recepción del presente oficio.  
+
+No se omite mencionar, que no mantener en vigor la póliza de fianza podrá derivar en la aplicación de penas convencionales, conforme a lo dispuesto en el mencionado instrumento contractual.
+
+Sin otro particular, reciba un cordial saludo. 
+
+A T E N T A M E N T E
+
+
+Lic. Evodio Cruz Segura
+Gerente de Comercialización`}
+                  </div>
+                </div>
+              </div>
+
+              {/* HISTORIAL DE ACCIONES (Fianzas) */}
+              <HistorialAcciones historial={fianza.historial} onAddAction={onAddAction} />
+
+            </div>
+          );
+        }
+
+        function RenewSeguroForm({ seguro, onUpdateDate, onAddAction, onBack }) {
+          const [empresa, setEmpresa] = useState(seguro.empresa || '');
+          const [contacto, setContacto] = useState(seguro.contacto || '');
+          const [servicio, setServicio] = useState(seguro.servicio || 'Prestación de Servicios');
+          const [numContrato, setNumContrato] = useState(seguro.numContrato || '');
+          const [termino, setTermino] = useState(seguro.termino || '');
+
+          const textoRef = useRef(null);
+          const [copiado, setCopiado] = useState(false);
+          const handleCopy = () => { navigator.clipboard.writeText(textoRef.current.innerText); setCopiado(true); setTimeout(() => setCopiado(false), 2000); };
+
+          return (
+            <div className="space-y-6">
+              <button onClick={onBack} className="flex items-center gap-2 text-brand-gris hover:text-brand-guinda transition font-bold"><ChevronLeft className="w-5 h-5" /> Regresar</button>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-5 space-y-6">
+                  {/* DATOS DE SEGURO */}
+                  <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-t-4 border-t-brand-dorado">
+                     <h3 className="text-lg font-bold text-brand-oscuro flex items-center gap-2 mb-6"><Shield className="w-5 h-5 text-brand-dorado" /> Renovación de Seguro</h3>
+                     <div className="space-y-3 p-4 rounded border border-brand-gris/20 bg-slate-50">
+                        <h4 className="font-bold text-sm text-brand-oscuro mb-2 border-b border-brand-gris/20 pb-1">Datos Generales del Documento</h4>
+                        <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Empresa</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={empresa} onChange={(e)=>setEmpresa(e.target.value)} /></div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Representante Legal</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={contacto} onChange={(e)=>setContacto(e.target.value)} /></div>
+                          <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Vencimiento Póliza</label><input type="date" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={termino} onChange={(e)=>setTermino(e.target.value)} /></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Nombre Contrato</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none" value={servicio} onChange={(e)=>setServicio(e.target.value)} /></div>
+                          <div><label className="block text-xs font-bold text-brand-gris mb-1 uppercase">Número Contrato</label><input type="text" className="w-full px-2 py-1.5 text-sm border border-brand-gris/30 rounded focus:ring-2 focus:ring-brand-dorado outline-none uppercase" value={numContrato} onChange={(e)=>setNumContrato(e.target.value)} /></div>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* ACTUALIZAR SEMÁFORO */}
+                  <div className="bg-white p-6 rounded shadow-sm border border-brand-gris/20 border-l-4 border-l-brand-verde flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold text-brand-oscuro">Confirmar Recepción de Póliza</h4>
+                      <p className="text-sm text-brand-gris">Guarda la nueva fecha para resetear el semáforo a verde.</p>
+                    </div>
+                    <button onClick={() => termino && onUpdateDate(seguro.id, termino)} className="bg-brand-verde text-white px-5 py-2.5 rounded font-bold hover:bg-opacity-90 transition shadow">Actualizar Semáforo</button>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-7 flex flex-col">
+                  {/* PLANTILLA DE OFICIO */}
+                  <div className="bg-brand-oscuro p-3 rounded-t flex justify-between items-center px-4">
+                    <h3 className="text-sm font-bold text-brand-dorado flex items-center gap-2"><FileText className="w-4 h-4" /> Plantilla: Oficio Solicitud Renovación</h3>
+                    <button onClick={handleCopy} className={`flex items-center gap-1 px-4 py-1.5 rounded text-sm font-bold transition shadow ${copiado ? 'bg-brand-dorado text-brand-oscuro' : 'bg-white text-brand-oscuro hover:bg-gray-100'}`}>{copiado ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}{copiado ? 'Copiado' : 'Copiar Texto'}</button>
+                  </div>
+                  <div className="bg-white border-l border-r border-b border-brand-gris/20 rounded-b p-10 shadow-sm flex-1 font-serif text-[15px] leading-relaxed whitespace-pre-wrap text-black" ref={textoRef}>
+{`C. ${contacto || '[Contacto]'}
+${empresa}
+P R E S E N T E
+
+Por medio del presente, en relación a su Contrato de ${servicio} con número de registro ${numContrato}, y en atención a la verificación de cumplimiento que esta Entidad está llevando a cabo respecto a los seguros que deben obrar dentro de su expediente.
+
+Se solicita amablemente, me sea enviada la renovación de la siguiente póliza de seguro, acompañando copia de pago, complemento de pago y XML correspondiente.
+
+A continuación, hago referencia a la póliza señalada en el párrafo anterior: 
+
+ASEGURADORA: ${seguro.aseguradora}
+PÓLIZA:      ${seguro.poliza}
+DESCRIPCIÓN: ${seguro.descripcion}
+VENCIMIENTO: ${termino}
+
+Agradeceré me confirme de recibido por esta misma vía.
+
+Sin otro particular, reciba un cordial saludo.
+
+A T E N T A M E N T E
+
+
+Lic. Evodio Cruz Segura
+Gerente de Comercialización`}
+                  </div>
+                </div>
+              </div>
+
+              {/* HISTORIAL DE ACCIONES (Seguros) */}
+              <HistorialAcciones historial={seguro.historial} onAddAction={onAddAction} />
+
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
